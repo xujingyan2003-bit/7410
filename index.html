@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hong Kong Retail Recovery Calculator | Data Story</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
   <style>
     :root {
       --bg: #f4f7fb;
@@ -199,6 +200,24 @@
       </div>
     </section>
 
+    <section class="section charts">
+      <h2>3. Deep-Dive Visual Analysis</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Retail Value Index vs Inbound Visitors by Year</h3>
+          <div id="chartRetailVisitor" class="chart"></div>
+        </div>
+        <div class="card">
+          <h3>Price Trend, Unit Price, and CPI</h3>
+          <div id="chartPriceCpi" class="chart"></div>
+        </div>
+        <div class="card">
+          <h3>2014 Benchmark vs Latest Year</h3>
+          <div id="chartBenchmark" class="chart"></div>
+        </div>
+      </div>
+    </section>
+
     <footer class="section card">
       <p>
         Source: Data from the Census and Statistics Department (C&SD) of Hong Kong on retail sales
@@ -241,6 +260,7 @@
 
     const state = {
       yearlyRows: [],
+      charts: {},
       selectedYear: 2024,
       selectedCategory: "all"
     };
@@ -447,13 +467,100 @@
         `Projected index = ${fmtNum(sBase.valueIndex)} × (${fmtInt(targetVisitors)} / ${fmtInt(visitorBase)}) × (1 + ${fmtNum(pricePct, 1)}%)`;
     }
 
+    function buildCharts() {
+      state.charts.retailVisitor = echarts.init(document.getElementById("chartRetailVisitor"));
+      state.charts.priceCpi = echarts.init(document.getElementById("chartPriceCpi"));
+      state.charts.benchmark = echarts.init(document.getElementById("chartBenchmark"));
+      window.addEventListener("resize", () => {
+        Object.values(state.charts).forEach((c) => c.resize());
+      });
+    }
+
+    function updateChartRetailVisitor() {
+      const category = state.selectedCategory;
+      const years = state.yearlyRows.map((r) => r.year);
+      const valueSeries = state.yearlyRows.map((r) => getSeriesByCategory(r, category).valueIndex);
+      const visitorSeries = state.yearlyRows.map((r) => r.visitors);
+
+      state.charts.retailVisitor.setOption({
+        tooltip: { trigger: "axis" },
+        legend: { data: ["Value Index", "Inbound Visitors"] },
+        xAxis: [{ type: "category", data: years }],
+        yAxis: [
+          { type: "value", name: "Value Index" },
+          { type: "value", name: "Visitors", axisLabel: { formatter: (v) => `${Math.round(v / 1000000)}M` } }
+        ],
+        series: [
+          { name: "Value Index", type: "line", smooth: true, data: valueSeries, yAxisIndex: 0, lineStyle: { width: 3 } },
+          { name: "Inbound Visitors", type: "bar", data: visitorSeries, yAxisIndex: 1, itemStyle: { color: "#7fa6dc" } }
+        ]
+      });
+    }
+
+    function updateChartPriceCpi() {
+      const category = state.selectedCategory;
+      const years = state.yearlyRows.map((r) => r.year);
+      const priceIdx = state.yearlyRows.map((r) => getSeriesByCategory(r, category).priceIndex);
+      const unitTrend = state.yearlyRows.map((r) => getSeriesByCategory(r, category).unitPriceTrend ? getSeriesByCategory(r, category).unitPriceTrend * 100 : null);
+      const cpi = state.yearlyRows.map((r) => r.cpi);
+
+      state.charts.priceCpi.setOption({
+        tooltip: { trigger: "axis" },
+        legend: { data: ["Retail Price Index", "Unit Price Trend (Value/Volume)", "Composite CPI"] },
+        xAxis: { type: "category", data: years },
+        yAxis: { type: "value", name: "Index" },
+        series: [
+          { name: "Retail Price Index", type: "line", smooth: true, data: priceIdx, lineStyle: { width: 3 } },
+          { name: "Unit Price Trend (Value/Volume)", type: "line", smooth: true, data: unitTrend, lineStyle: { type: "dashed" } },
+          { name: "Composite CPI", type: "line", smooth: true, data: cpi }
+        ]
+      });
+    }
+
+    function updateChartBenchmark() {
+      const category = state.selectedCategory;
+      const y2014 = state.yearlyRows.find((r) => r.year === 2014);
+      const latest = state.yearlyRows[state.yearlyRows.length - 1];
+      const s2014 = getSeriesByCategory(y2014, category);
+      const sl = getSeriesByCategory(latest, category);
+
+      const metrics = ["Value Index", "Volume Index", "Unit Price Index (x100)", "Inbound Visitors (M)"];
+      const v2014 = [
+        s2014.valueIndex,
+        s2014.volumeIndex,
+        s2014.unitPriceTrend ? s2014.unitPriceTrend * 100 : null,
+        y2014.visitors ? y2014.visitors / 1000000 : null
+      ];
+      const vlast = [
+        sl.valueIndex,
+        sl.volumeIndex,
+        sl.unitPriceTrend ? sl.unitPriceTrend * 100 : null,
+        latest.visitors ? latest.visitors / 1000000 : null
+      ];
+
+      state.charts.benchmark.setOption({
+        tooltip: { trigger: "axis" },
+        legend: { data: ["2014", `${latest.year}`] },
+        xAxis: { type: "category", data: metrics },
+        yAxis: { type: "value" },
+        series: [
+          { name: "2014", type: "bar", data: v2014, itemStyle: { color: "#4d6ea8" } },
+          { name: `${latest.year}`, type: "bar", data: vlast, itemStyle: { color: "#9eb7df" } }
+        ]
+      });
+    }
+
     function updateAll() {
       updateKpis();
       updateSimulation();
+      updateChartRetailVisitor();
+      updateChartPriceCpi();
+      updateChartBenchmark();
     }
 
     function mountApp() {
       setupFilters();
+      buildCharts();
       document.getElementById("visitorSlider").addEventListener("input", updateSimulation);
       document.getElementById("priceSlider").addEventListener("input", updateSimulation);
       updateAll();
