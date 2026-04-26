@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>香港零售业复苏测算｜数据新闻专题</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --primary: #0f2b52;
+      --secondary: #2d4f8b;
+      --ok: #1f9d55;
+      --warn: #c23b22;
+      --text: #1f2d3d;
+      --muted: #607089;
+      --shadow: 0 8px 24px rgba(15, 43, 82, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+    .container {
+      width: min(1180px, 94%);
+      margin: 0 auto;
+      padding-bottom: 40px;
+    }
+    .hero {
+      background: linear-gradient(130deg, #0f2b52, #1f467f);
+      color: #fff;
+      padding: 48px 0 40px;
+      margin-bottom: 24px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; }
+    h1 { font-size: clamp(24px, 4vw, 38px); }
+    h2 { color: var(--primary); font-size: clamp(20px, 3vw, 28px); margin-top: 14px; }
+    p { margin: 0 0 10px; }
+    .lead { opacity: 0.95; max-width: 920px; }
+    .grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .kpi { grid-column: span 3; }
+    .kpi .label { color: var(--muted); font-size: 13px; }
+    .kpi .value { font-size: 30px; font-weight: 700; color: var(--primary); }
+    .kpi .sub { font-size: 13px; color: var(--muted); }
+    .section { margin-top: 16px; }
+    .controls { grid-column: span 12; }
+    .control-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin: 12px 0;
+    }
+    .control-row input[type="range"] { width: 100%; }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      background: #e7eef9;
+      color: var(--secondary);
+      margin-right: 6px;
+    }
+    .result {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #f8fbff;
+      border: 1px solid #dbe8fb;
+    }
+    .result strong { font-size: 22px; color: var(--primary); }
+    .status-ok { color: var(--ok); font-weight: 700; }
+    .status-warn { color: var(--warn); font-weight: 700; }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 8px 0 14px;
+      align-items: center;
+    }
+    .filters select {
+      border: 1px solid #c7d7ee;
+      border-radius: 8px;
+      padding: 7px 10px;
+      background: #fff;
+      color: var(--text);
+    }
+    .charts .card { grid-column: span 12; }
+    .chart { height: 420px; width: 100%; }
+    .footnote {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 10px;
+      white-space: pre-line;
+    }
+    .mapping {
+      font-family: Consolas, monospace;
+      background: #0e213f;
+      color: #dce8ff;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 12px;
+      white-space: pre-wrap;
+      margin-top: 8px;
+    }
+    @media (max-width: 980px) {
+      .kpi { grid-column: span 6; }
+    }
+    @media (max-width: 640px) {
+      .kpi { grid-column: span 12; }
+      .chart { height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>香港零售业复苏测算</h1>
+      <p class="lead">
+        以 2014 年作为零售业高位参照，围绕“访港旅客增量”与“商品平均单价变化”两大变量，
+        评估香港零售业恢复到历史高位还需多大增量空间。
+      </p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>一、数据差距现状</h2>
+      <div class="grid">
+        <div class="card kpi">
+          <div class="label">2014 年价值指数（基准）</div>
+          <div id="kpi2014Value" class="value">-</div>
+          <div class="sub">Value Index</div>
+        </div>
+        <div class="card kpi">
+          <div class="label">最新年份价值指数</div>
+          <div id="kpiLatestValue" class="value">-</div>
+          <div class="sub" id="kpiLatestYear">-</div>
+        </div>
+        <div class="card kpi">
+          <div class="label">价值指数差距</div>
+          <div id="kpiGap" class="value">-</div>
+          <div class="sub">距离 2014 的缺口</div>
+        </div>
+        <div class="card kpi">
+          <div class="label">最新访港旅客总量</div>
+          <div id="kpiVisitors" class="value">-</div>
+          <div class="sub">Total Visitors</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>二、交互式复苏测算工具</h2>
+      <div class="card controls">
+        <div class="filters">
+          <span class="pill">年份筛选</span>
+          <select id="yearSelect"></select>
+          <span class="pill">品类切换</span>
+          <select id="categorySelect">
+            <option value="all">全零售（All Retail）</option>
+            <option value="jewellery">珠宝钟表及名贵礼物</option>
+          </select>
+        </div>
+
+        <div class="control-row">
+          <label for="visitorSlider">访港旅客规模（相对 2014 峰值：0% - 200%）</label>
+          <div><span id="visitorPctText">100%</span></div>
+        </div>
+        <input id="visitorSlider" type="range" min="0" max="200" step="1" value="100" />
+
+        <div class="control-row">
+          <label for="priceSlider">商品平均单价变化（-20% ~ +50%）</label>
+          <div><span id="pricePctText">0%</span></div>
+        </div>
+        <input id="priceSlider" type="range" min="-20" max="50" step="0.5" value="0" />
+
+        <div class="result">
+          <p>预测零售价值指数：<strong id="forecastValueIndex">-</strong></p>
+          <p>距离 2014 峰值缺口：<strong id="forecastGapPct">-</strong></p>
+          <p>当前判定：<span id="targetStatus" class="status-warn">-</span></p>
+          <p class="footnote" id="formulaText"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section charts">
+      <h2>三、深度图表分析</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>历年零售价值指数与访港旅客变化</h3>
+          <div id="chartRetailVisitor" class="chart"></div>
+        </div>
+        <div class="card">
+          <h3>物价趋势、单价变动与 CPI 对比</h3>
+          <div id="chartPriceCpi" class="chart"></div>
+        </div>
+        <div class="card">
+          <h3>2014 峰值 vs 最新年度对标</h3>
+          <div id="chartBenchmark" class="chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section card">
+      <h2>四、数据来源与指标解读</h2>
+      <p>
+        数据来源：香港统计处（C&SD）零售销售统计（表号 620-67002 / 620-67003）及访港旅客、CPI 公开数据清洗结果。
+        本页面采用前端本地 CSV 读取，无后端、无数据库，可直接部署在 GitHub Pages。
+      </p>
+      <p class="footnote">
+        核心公式（用于交互测算）：
+        1) 单价指数 = Value Index / Volume Index
+        2) 预测价值指数 = 基准年价值指数 × (目标游客量 / 基准年游客量) × (1 + 单价调整率)
+        3) 缺口% = (预测价值指数 - 2014价值指数) / 2014价值指数
+      </p>
+      <div class="mapping" id="mappingInfo"></div>
+    </section>
+  </main>
+
+  <script>
+    // ======================
+    // CSV 文件名与字段映射（可直接替换）
+    // ======================
+    const DATA_MAPPING = {
+      files: {
+        unifiedDataset: "retail_news_dataset_2014_2024.csv"
+      },
+      fields: {
+        year: "Year",
+        month: "Month",
+        date: "Date",
+        category: "Category",
+        totalVisitors: "Total_Visitors",
+        cpiIndex: "Composite_CPI_Index",
+        cpiYoY: "YoY_Change",
+        valueIndex: "Value_Index",
+        volumeIndex: "Volume_Index",
+        valueVolumeIndex: "Value_Volume_Index",
+        unitPriceTrend: "Unit_Price_Trend",
+        allRetailPriceIndex: "All_Retail_Price_Index",
+        tableRef: "Table_Ref",
+        indexLabel: "Index_Label"
+      }
+    };
+
+    const state = {
+      yearlyRows: [],
+      charts: {},
+      selectedYear: 2024,
+      selectedCategory: "all"
+    };
+
+    function parseCsv(file) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data),
+          error: (err) => reject(err)
+        });
+      });
+    }
+
+    function parseCsvText(csvText) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data),
+          error: (err) => reject(err)
+        });
+      });
+    }
+
+    async function pickFolderAndReadCsvText(fileNames) {
+      if (!window.showDirectoryPicker) {
+        throw new Error("当前浏览器不支持本地文件夹授权读取，请改用 Edge/Chrome，或使用本地静态服务器打开。");
+      }
+
+      const dirHandle = await window.showDirectoryPicker({
+        mode: "read"
+      });
+
+      const textMap = {};
+      for (const fileName of fileNames) {
+        const fileHandle = await dirHandle.getFileHandle(fileName);
+        const file = await fileHandle.getFile();
+        textMap[fileName] = await file.text();
+      }
+      return textMap;
+    }
+
+    function toNum(v) {
+      const n = Number(String(v).replace(/,/g, "").trim());
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function fmtNum(v, digits = 1) {
+      if (v == null || !Number.isFinite(v)) return "-";
+      return v.toLocaleString("zh-CN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    }
+
+    function fmtInt(v) {
+      if (v == null || !Number.isFinite(v)) return "-";
+      return Math.round(v).toLocaleString("zh-CN");
+    }
+
+    async function loadData(csvTextMap = null) {
+      const files = DATA_MAPPING.files;
+      const f = DATA_MAPPING.fields;
+      const readRows = (fileName) => {
+        if (csvTextMap && csvTextMap[fileName]) {
+          return parseCsvText(csvTextMap[fileName]);
+        }
+        return parseCsv(fileName);
+      };
+
+      const unifiedRows = await readRows(files.unifiedDataset);
+      const yearMap = new Map();
+
+      unifiedRows.forEach((r) => {
+        const y = toNum(r[f.year]);
+        if (!y) return;
+        const cat = String(r[f.category] || "").trim().toLowerCase();
+
+        if (!yearMap.has(y)) {
+          yearMap.set(y, {
+            year: y,
+            visitors: toNum(r[f.totalVisitors]),
+            cpi: toNum(r[f.cpiIndex]),
+            cpiYoY: toNum(r[f.cpiYoY]),
+            allValueIndex: null,
+            allVolumeIndex: null,
+            allPriceIndex: null,
+            allUnitPriceTrend: null,
+            jewelleryValueIndex: null,
+            jewelleryVolumeIndex: null,
+            jewelleryUnitPriceTrend: null,
+            tableRef: r[f.tableRef] || "620-67002 / 620-67003"
+          });
+        }
+
+        const row = yearMap.get(y);
+        row.visitors = row.visitors ?? toNum(r[f.totalVisitors]);
+        row.cpi = row.cpi ?? toNum(r[f.cpiIndex]);
+        row.cpiYoY = row.cpiYoY ?? toNum(r[f.cpiYoY]);
+
+        const valueIdx = toNum(r[f.valueIndex]);
+        const volumeIdx = toNum(r[f.volumeIndex]);
+        const unitTrend = toNum(r[f.unitPriceTrend]) ?? toNum(r[f.valueVolumeIndex]);
+
+        if (cat === "all") {
+          row.allValueIndex = valueIdx;
+          row.allVolumeIndex = volumeIdx;
+          row.allPriceIndex = toNum(r[f.allRetailPriceIndex]);
+          row.allUnitPriceTrend = unitTrend;
+        } else if (cat === "jewellery") {
+          row.jewelleryValueIndex = valueIdx;
+          row.jewelleryVolumeIndex = volumeIdx;
+          row.jewelleryUnitPriceTrend = unitTrend;
+        }
+      });
+
+      state.yearlyRows = Array.from(yearMap.values()).sort((a, b) => a.year - b.year);
+      state.selectedYear = Math.max(...state.yearlyRows.map((r) => r.year));
+    }
+
+    function getSeriesByCategory(row, category) {
+      if (category === "jewellery") {
+        return {
+          valueIndex: row.jewelleryValueIndex,
+          volumeIndex: row.jewelleryVolumeIndex,
+          unitPriceTrend: row.jewelleryUnitPriceTrend,
+          priceIndex: row.jewelleryUnitPriceTrend ? row.jewelleryUnitPriceTrend * 100 : null
+        };
+      }
+      return {
+        valueIndex: row.allValueIndex,
+        volumeIndex: row.allVolumeIndex,
+        unitPriceTrend: row.allUnitPriceTrend,
+        priceIndex: row.allPriceIndex
+      };
+    }
+
+    function setupFilters() {
+      const yearSelect = document.getElementById("yearSelect");
+      const categorySelect = document.getElementById("categorySelect");
+      yearSelect.innerHTML = state.yearlyRows
+        .map((r) => `<option value="${r.year}" ${r.year === state.selectedYear ? "selected" : ""}>${r.year}年</option>`)
+        .join("");
+
+      yearSelect.addEventListener("change", (e) => {
+        state.selectedYear = Number(e.target.value);
+        updateAll();
+      });
+
+      categorySelect.addEventListener("change", (e) => {
+        state.selectedCategory = e.target.value;
+        updateAll();
+      });
+    }
+
+    function updateKpis() {
+      const rows = state.yearlyRows;
+      const category = state.selectedCategory;
+      const y2014 = rows.find((r) => r.year === 2014);
+      const latest = rows[rows.length - 1];
+      const s2014 = getSeriesByCategory(y2014, category);
+      const sl = getSeriesByCategory(latest, category);
+      const gap = s2014.valueIndex ? ((sl.valueIndex - s2014.valueIndex) / s2014.valueIndex) * 100 : null;
+
+      document.getElementById("kpi2014Value").textContent = fmtNum(s2014.valueIndex);
+      document.getElementById("kpiLatestValue").textContent = fmtNum(sl.valueIndex);
+      document.getElementById("kpiLatestYear").textContent = `${latest.year} 年`;
+      document.getElementById("kpiGap").textContent = gap == null ? "-" : `${fmtNum(gap)}%`;
+      document.getElementById("kpiVisitors").textContent = fmtInt(latest.visitors);
+    }
+
+    function updateSimulation() {
+      const rows = state.yearlyRows;
+      const category = state.selectedCategory;
+      const selected = rows.find((r) => r.year === state.selectedYear);
+      const y2014 = rows.find((r) => r.year === 2014);
+      const sBase = getSeriesByCategory(selected, category);
+      const s2014 = getSeriesByCategory(y2014, category);
+      const visitor2014 = y2014?.visitors ?? null;
+      const visitorBase = selected?.visitors ?? null;
+
+      const visitorPct = Number(document.getElementById("visitorSlider").value);
+      const pricePct = Number(document.getElementById("priceSlider").value);
+      document.getElementById("visitorPctText").textContent = `${visitorPct}%`;
+      document.getElementById("pricePctText").textContent = `${pricePct}%`;
+
+      // 双变量联动模型：游客量变化影响销量规模，单价变化影响价值规模
+      const targetVisitors = visitor2014 != null ? (visitor2014 * visitorPct) / 100 : null;
+      const visitorFactor = targetVisitors != null && visitorBase ? targetVisitors / visitorBase : null;
+      const priceFactor = 1 + pricePct / 100;
+      const forecast = sBase.valueIndex != null && visitorFactor != null ? sBase.valueIndex * visitorFactor * priceFactor : null;
+      const gapTo2014 = forecast != null && s2014.valueIndex ? ((forecast - s2014.valueIndex) / s2014.valueIndex) * 100 : null;
+      const reached = gapTo2014 != null && gapTo2014 >= 0;
+
+      document.getElementById("forecastValueIndex").textContent = forecast == null ? "-" : fmtNum(forecast);
+      document.getElementById("forecastGapPct").textContent = gapTo2014 == null ? "-" : `${fmtNum(gapTo2014)}%`;
+
+      const statusEl = document.getElementById("targetStatus");
+      statusEl.textContent = reached ? "已达到/超过 2014 基准" : "尚未达到 2014 基准";
+      statusEl.className = reached ? "status-ok" : "status-warn";
+
+      document.getElementById("formulaText").textContent =
+        `基准年份：${selected.year}年 | 目标游客量：${fmtInt(targetVisitors)}\n` +
+        `预测值 = ${fmtNum(sBase.valueIndex)} × (${fmtInt(targetVisitors)} / ${fmtInt(visitorBase)}) × (1 + ${fmtNum(pricePct, 1)}%)`;
+    }
+
+    function buildCharts() {
+      state.charts.retailVisitor = echarts.init(document.getElementById("chartRetailVisitor"));
+      state.charts.priceCpi = echarts.init(document.getElementById("chartPriceCpi"));
+      state.charts.benchmark = echarts.init(document.getElementById("chartBenchmark"));
+      window.addEventListener("resize", () => {
+        Object.values(state.charts).forEach((c) => c.resize());
+      });
+    }
+
+    function updateChartRetailVisitor() {
+      const category = state.selectedCategory;
+      const years = state.yearlyRows.map((r) => r.year);
+      const valueSeries = state.yearlyRows.map((r) => getSeriesByCategory(r, category).valueIndex);
+      const visitorSeries = state.yearlyRows.map((r) => r.visitors);
+
+      state.charts.retailVisitor.setOption({
+        tooltip: { trigger: "axis" },
+        legend: { data: ["价值指数", "访港旅客"] },
+        xAxis: [{ type: "category", data: years }],
+        yAxis: [
+          { type: "value", name: "价值指数" },
+          { type: "value", name: "访港旅客（人次）", axisLabel: { formatter: (v) => `${Math.round(v / 1000000)}M` } }
+        ],
+        series: [
+          { name: "价值指数", type: "line", smooth: true, data: valueSeries, yAxisIndex: 0, lineStyle: { width: 3 } },
+          { name: "访港旅客", type: "bar", data: visitorSeries, yAxisIndex: 1, itemStyle: { color: "#7fa6dc" } }
+        ]
+      });
+    }
+
+    function updateChartPriceCpi() {
+      const category = state.selectedCategory;
+      const years = state.yearlyRows.map((r) => r.year);
+      const priceIdx = state.yearlyRows.map((r) => getSeriesByCategory(r, category).priceIndex);
+      const unitTrend = state.yearlyRows.map((r) => getSeriesByCategory(r, category).unitPriceTrend ? getSeriesByCategory(r, category).unitPriceTrend * 100 : null);
+      const cpi = state.yearlyRows.map((r) => r.cpi);
+
+      state.charts.priceCpi.setOption({
+        tooltip: { trigger: "axis" },
+        legend: { data: ["零售价格指数", "单价趋势(Value/Volume)", "综合CPI"] },
+        xAxis: { type: "category", data: years },
+        yAxis: { type: "value", name: "指数" },
+        series: [
+          { name: "零售价格指数", type: "line", smooth: true, data: priceIdx, lineStyle: { width: 3 } },
+          { name: "单价趋势(Value/Volume)", type: "line", smooth: true, data: unitTrend, lineStyle: { type: "dashed" } },
+          { name: "综合CPI", type: "line", smooth: true, data: cpi }
+        ]
+      });
+    }
+
+    function updateChartBenchmark() {
+      const category = state.selectedCategory;
+      const y2014 = state.yearlyRows.find((r) => r.year === 2014);
+      const latest = state.yearlyRows[state.yearlyRows.length - 1];
+      const s2014 = getSeriesByCategory(y2014, category);
+      const sl = getSeriesByCategory(latest, category);
+
+      const metrics = ["价值指数", "数量指数", "单价指数(×100)", "访港旅客(百万)"];
+      const v2014 = [
+        s2014.valueIndex,
+        s2014.volumeIndex,
+        s2014.unitPriceTrend ? s2014.unitPriceTrend * 100 : null,
+        y2014.visitors ? y2014.visitors / 1000000 : null
+      ];
+      const vlast = [
+        sl.valueIndex,
+        sl.volumeIndex,
+        sl.unitPriceTrend ? sl.unitPriceTrend * 100 : null,
+        latest.visitors ? latest.visitors / 1000000 : null
+      ];
+
+      state.charts.benchmark.setOption({
+        tooltip: { trigger: "axis" },
+        legend: { data: ["2014年", `${latest.year}年`] },
+        xAxis: { type: "category", data: metrics },
+        yAxis: { type: "value" },
+        series: [
+          { name: "2014年", type: "bar", data: v2014, itemStyle: { color: "#4d6ea8" } },
+          { name: `${latest.year}年`, type: "bar", data: vlast, itemStyle: { color: "#9eb7df" } }
+        ]
+      });
+    }
+
+    function updateMappingInfo() {
+      document.getElementById("mappingInfo").textContent =
+`CSV 文件名与字段映射（可改）:
+files.unifiedDataset = ${DATA_MAPPING.files.unifiedDataset}
+
+核心字段:
+Year, Month, Date, Category
+Value_Index, Volume_Index, Value_Volume_Index
+Composite_CPI_Index, YoY_Change, Unit_Price_Trend
+All_Retail_Price_Index, Total_Visitors
+
+官方背景字段:
+tableRef = "620-67002 / 620-67003"`;
+    }
+
+    function updateAll() {
+      updateKpis();
+      updateSimulation();
+      updateChartRetailVisitor();
+      updateChartPriceCpi();
+      updateChartBenchmark();
+    }
+
+    function mountApp() {
+      setupFilters();
+      buildCharts();
+      updateMappingInfo();
+      document.getElementById("visitorSlider").addEventListener("input", updateSimulation);
+      document.getElementById("priceSlider").addEventListener("input", updateSimulation);
+      updateAll();
+    }
+
+    async function init() {
+      const appMarkup = document.body.innerHTML;
+      try {
+        await loadData();
+      } catch (err) {
+        // 在 file:// 模式下，浏览器可能拦截相对路径读取；此处自动切换到文件夹授权读取
+        const isFileProtocol = window.location.protocol === "file:";
+        if (!isFileProtocol) {
+          document.body.innerHTML = `<div style="padding:20px;color:#b00020;">数据加载失败：${err}</div>`;
+          return;
+        }
+        document.body.innerHTML =
+          `<div style="padding:20px;max-width:860px;">` +
+          `<h2 style="margin:0 0 12px;color:#0f2b52;">需要一次授权读取本地 CSV</h2>` +
+          `<p style="margin:0 0 10px;color:#b00020;">` +
+          `浏览器安全策略要求：必须在“用户点击”后才能打开文件夹选择器。` +
+          `</p>` +
+          `<button id="grantAccessBtn" style="background:#0f2b52;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;">` +
+          `点击授权并加载数据` +
+          `</button>` +
+          `<p id="accessMsg" style="margin-top:12px;color:#607089;"></p>` +
+          `</div>`;
+
+        const button = document.getElementById("grantAccessBtn");
+        const msg = document.getElementById("accessMsg");
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          button.textContent = "正在读取...";
+          msg.textContent = "请在弹窗中选择包含 CSV 的同一文件夹。";
+          try {
+            const fileNames = Object.values(DATA_MAPPING.files);
+            const csvTextMap = await pickFolderAndReadCsvText(fileNames);
+            await loadData(csvTextMap);
+            document.body.innerHTML = appMarkup;
+            mountApp();
+          } catch (fallbackErr) {
+            button.disabled = false;
+            button.textContent = "点击授权并加载数据";
+            msg.style.color = "#b00020";
+            msg.textContent = `读取失败：${fallbackErr}`;
+          }
+        });
+        return;
+      }
+
+      mountApp();
+    }
+    init();
+  </script>
+</body>
+</html>
